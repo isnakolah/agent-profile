@@ -210,11 +210,13 @@ func loginCommand(args []string) error {
 	if err != nil {
 		return err
 	}
-	root, command := p.CodexHome, "codex"
-	loginArgs := []string{"login"}
+	command, loginArgs, err := providerLoginSpec(args[1])
+	if err != nil {
+		return err
+	}
+	root := p.CodexHome
 	if args[1] == "claude" {
-		root, command = p.ClaudeConfigDir, "claude"
-		loginArgs = []string{"auth", "login"}
+		root = p.ClaudeConfigDir
 	}
 	if err := os.MkdirAll(root, 0o700); err != nil {
 		return err
@@ -223,6 +225,17 @@ func loginCommand(args []string) error {
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	cmd.Env = append(os.Environ(), envName(args[1])+"="+root)
 	return cmd.Run()
+}
+
+func providerLoginSpec(provider string) (string, []string, error) {
+	switch provider {
+	case "codex":
+		return "codex", []string{"login"}, nil
+	case "claude":
+		return "claude", []string{"auth", "login"}, nil
+	default:
+		return "", nil, fmt.Errorf("unsupported provider %q", provider)
+	}
 }
 
 func envName(provider string) string {

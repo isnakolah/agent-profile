@@ -51,6 +51,20 @@ func TestDoctorReportDoesNotExposeCredentials(t *testing.T) {
 	}
 }
 
+func TestProviderLoginSpecs(t *testing.T) {
+	command, args, err := providerLoginSpec("codex")
+	if err != nil || command != "codex" || len(args) != 1 || args[0] != "login" {
+		t.Fatalf("Codex login spec = %q %v %v", command, args, err)
+	}
+	command, args, err = providerLoginSpec("claude")
+	if err != nil || command != "claude" || len(args) != 2 || args[0] != "auth" || args[1] != "login" {
+		t.Fatalf("Claude login spec = %q %v %v", command, args, err)
+	}
+	if _, _, err := providerLoginSpec("unknown"); err == nil {
+		t.Fatal("unknown provider accepted")
+	}
+}
+
 func TestAtomicJSONAndRegistryMetadata(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "profiles.json")
