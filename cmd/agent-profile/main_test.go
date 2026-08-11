@@ -40,6 +40,17 @@ func TestClaudeLauncherUsesOnlyClaudeConfigDir(t *testing.T) {
 	}
 }
 
+func TestDoctorReportDoesNotExposeCredentials(t *testing.T) {
+	r := DoctorReport{Version: version, OS: "test", Root: "/private/config", Profiles: 2, Codex: "unavailable", Claude: "unavailable"}
+	b, err := json.Marshal(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if contains(string(b), "token") || contains(string(b), "secret") || contains(string(b), "password") {
+		t.Fatalf("doctor report exposes credential-like data: %s", b)
+	}
+}
+
 func TestAtomicJSONAndRegistryMetadata(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "profiles.json")
