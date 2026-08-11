@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -70,6 +71,8 @@ func run(args []string) error {
 		return snapshotCommand(args[1:])
 	case "refresh":
 		return refreshCommand(args[1:])
+	case "daemon":
+		return daemonCommand(args[1:])
 	case "login":
 		return loginCommand(args[1:])
 	case "dashboard":
@@ -92,6 +95,7 @@ Commands:
   login NAME codex|claude
   snapshot NAME [--json]
   refresh [NAME|--all]
+  daemon [--interval DURATION]
   dashboard [--watch]
   doctor [--json]
   service install [--apply]
@@ -305,6 +309,28 @@ func refreshCommand(args []string) error {
 	return nil
 }
 
+func daemonCommand(args []string) error {
+	fs := flag.NewFlagSet("daemon", flag.ContinueOnError)
+	interval := fs.Duration("interval", 5*time.Minute, "refresh interval")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *interval <= 0 {
+		return errors.New("daemon interval must be positive")
+	}
+	if err := refreshCommand([]string{"--all"}); err != nil {
+		return err
+	}
+	ticker := time.NewTicker(*interval)
+	defer ticker.Stop()
+	for range ticker.C {
+		if err := refreshCommand([]string{"--all"}); err != nil {
+			fmt.Fprintln(os.Stderr, "refresh:", err)
+		}
+	}
+	return nil
+}
+
 func dashboardCommand(args []string) error {
 	store, err := openStore()
 	if err != nil {
@@ -363,7 +389,12 @@ func serviceCommand(args []string) error {
 	}
 	path := filepath.Join(root, "systemd", "user", "agent-profile.service")
 	content := fmt.Sprintf("[Unit]\nDescription=Agent Profile refresh\n\n[Service]\nType=oneshot\nExecStart=%s refresh --all\n", executable)
-	return writeService(path, content, *apply)
+	if err := writeService(path, content, *apply); err != nil {
+		return err
+	}
+	timerPath := filepath.Join(root, "systemd", "user", "agent-profile.timer")
+	timer := "[Unit]\nDescription=Refresh Agent Profile snapshots\n\n[Timer]\nOnBootSec=2min\nOnUnitActiveSec=5min\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n"
+	return writeService(timerPath, timer, *apply)
 }
 
 func writeService(path, content string, apply bool) error {
@@ -386,6 +417,25 @@ func notifyCommand(args []string) error {
 		return errors.New("usage: notify NAME MESSAGE")
 	}
 	message := strings.Join(args[1:], " ")
+	store, err := openStore()
+	if err != nil {
+		return err
+	}
+	key := fmt.Sprintf("%x", sha256.Sum256([]byte(message)))
+	dedupPath := filepath.Join(store.eventsDir, args[0]+"-notification.json")
+	var previous struct {
+		Key string    `json:"key"`
+		At  time.Time `json:"at"`
+	}
+	if b, readErr := os.ReadFile(dedupPath); readErr == nil {
+		_ = json.Unmarshal(b, &previous)
+	}
+	if previous.Key == key && time.Since(previous.At) < time.Hour {
+		return nil
+	}
+	if err := atomicJSON(dedupPath, map[string]any{"key": key, "at": time.Now().UTC()}, 0o600); err != nil {
+		return err
+	}
 	if runtime.GOOS == "darwin" {
 		return exec.Command("osascript", "-e", fmt.Sprintf("display notification %q with title %q", message, "agent-profile "+args[0])).Run()
 	}
