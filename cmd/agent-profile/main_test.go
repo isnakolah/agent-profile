@@ -54,6 +54,36 @@ func TestAtomicJSONAndRegistryMetadata(t *testing.T) {
 	}
 }
 
+func TestProfileLifecycleKeepsProviderRootsSeparate(t *testing.T) {
+	root := t.TempDir()
+	s := &store{root: root, registryPath: filepath.Join(root, "profiles.json"), eventsDir: filepath.Join(root, "snapshots"), registry: Registry{SchemaVersion: 1}}
+	if err := os.MkdirAll(s.eventsDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.create("demo"); err != nil {
+		t.Fatal(err)
+	}
+	p, err := s.profile("demo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.CodexHome == p.ClaudeConfigDir {
+		t.Fatal("provider roots must be distinct")
+	}
+	if _, err := os.Stat(p.CodexHome); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(p.ClaudeConfigDir); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.remove("demo"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Dir(p.CodexHome)); !os.IsNotExist(err) {
+		t.Fatalf("profile roots remain after remove: %v", err)
+	}
+}
+
 func contains(s, want string) bool { return len(s) >= len(want) && (s == want || index(s, want) >= 0) }
 
 func index(s, want string) int {
