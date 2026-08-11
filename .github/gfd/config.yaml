@@ -1,0 +1,33 @@
+schema_version: 1
+owner: isnakolah
+repository: agent-profile
+project:
+    id: PVT_kwHOAtDPcM4BgAni
+    number: 18
+    title: Agent Profile Delivery
+    fields:
+        area: PVTSSF_lAHOAtDPcM4BgAnizhaPXAc
+        branch: PVTF_lAHOAtDPcM4BgAnizhaPXEQ
+        kind: PVTSSF_lAHOAtDPcM4BgAnizhaPXAY
+        lease_expires: PVTF_lAHOAtDPcM4BgAnizhaPXEM
+        lease_holder: PVTF_lAHOAtDPcM4BgAnizhaPXC8
+        priority: PVTSSF_lAHOAtDPcM4BgAnizhaPXBY
+        proof: PVTSSF_lAHOAtDPcM4BgAnizhaPXCQ
+        state_fingerprint: PVTF_lAHOAtDPcM4BgAnizhaPXEU
+        status: PVTSSF_lAHOAtDPcM4BgAnizhaPW6E
+areas:
+    - delivery
+    - core
+    - codex
+    - claude
+    - tui
+    - monitoring
+    - distribution
+wiki_mode: journal
+default_branch: main
+writer_version: 0.0.0-dev
+authorized_actors:
+    - isnakolah
+policy:
+    lease_ttl_minutes: 120
+    reconcile_minutes: 5

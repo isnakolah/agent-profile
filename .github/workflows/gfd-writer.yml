@@ -1,0 +1,37 @@
+name: GFD Writer
+on:
+  issue_comment:
+    types: [created]
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+concurrency:
+  group: gfd-writer-${{ github.repository_id }}
+  cancel-in-progress: false
+jobs:
+  writer:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main}
+      - uses: actions/setup-go@v6
+        with: {go-version: '1.26.4'}
+      - name: Install canonical GFD
+        run: go install github.com/isnakolah/github-first-delivery/cmd/gfd@main
+      - name: Writer activation boundary
+        env:
+          GITHUB_TOKEN: ${{ secrets.GFD_WRITER_TOKEN }}
+        run: |
+          test -n "$GITHUB_TOKEN" || { echo 'GFD_WRITER_TOKEN not configured; writer remains inactive.'; exit 0; }
+          if [ "${{ github.event_name }}" = "issue_comment" ]; then
+            gfd writer run --issue-number "${{ github.event.issue.number }}" --apply
+          else
+            gfd writer reconcile --apply
+          fi

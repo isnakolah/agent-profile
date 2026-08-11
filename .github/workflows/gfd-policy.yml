@@ -1,0 +1,27 @@
+name: GFD policy
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited]
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+jobs:
+  policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with: {go-version: '1.26.4'}
+      - name: Install canonical GFD
+        run: go install github.com/isnakolah/github-first-delivery/cmd/gfd@main
+      - name: Validate PR metadata and live work state
+        env:
+          GITHUB_TOKEN: ${{ secrets.GFD_WRITER_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          test -n "$GITHUB_TOKEN" || { echo 'GFD_WRITER_TOKEN not configured; policy cannot verify Project lease.'; exit 1; }
+          gfd policy pr --pr "$PR_URL" --json
