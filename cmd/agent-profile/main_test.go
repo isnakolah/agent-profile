@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestValidProfileNames(t *testing.T) {
@@ -73,6 +74,28 @@ func TestSnapshotKeepsUnavailableUsageExplicit(t *testing.T) {
 	}
 	if !contains(string(b), `"usage":"unavailable: provider quota API not exposed by CLI"`) {
 		t.Fatalf("snapshot lost unavailable usage boundary: %s", b)
+	}
+}
+
+func TestCredentialReviewDateIsMetadataOnly(t *testing.T) {
+	root := t.TempDir()
+	s := &store{root: root, registryPath: filepath.Join(root, "profiles.json"), eventsDir: filepath.Join(root, "snapshots"), registry: Registry{SchemaVersion: 1}}
+	if err := os.MkdirAll(s.eventsDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.create("demo"); err != nil {
+		t.Fatal(err)
+	}
+	when := time.Date(2027, 1, 2, 3, 4, 5, 0, time.UTC)
+	if err := s.setReview("demo", when); err != nil {
+		t.Fatal(err)
+	}
+	p, err := s.profile("demo")
+	if err != nil || p.CredentialReview != when.Format(time.RFC3339) {
+		t.Fatalf("review metadata = %#v, err=%v", p, err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "profiles", "demo", "codex", "auth.json")); !os.IsNotExist(err) {
+		t.Fatalf("review update created credential file: %v", err)
 	}
 }
 
