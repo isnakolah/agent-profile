@@ -99,7 +99,7 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w, `agent-profile — isolated Codex and Claude profile manager
 
 Commands:
-  profile create|list|show|remove NAME
+  profile create|list|show|remove|review NAME [RFC3339]
   launcher install NAME [--apply]
   login NAME codex|claude
   snapshot NAME [--json]
@@ -143,6 +143,15 @@ func profileCommand(args []string) error {
 			return errors.New("usage: profile remove NAME")
 		}
 		return store.remove(args[1])
+	case "review":
+		if len(args) != 3 {
+			return errors.New("usage: profile review NAME RFC3339")
+		}
+		when, err := time.Parse(time.RFC3339, args[2])
+		if err != nil {
+			return fmt.Errorf("review date must be RFC3339: %w", err)
+		}
+		return store.setReview(args[1], when)
 	default:
 		return fmt.Errorf("unknown profile command %q", args[0])
 	}
@@ -548,6 +557,16 @@ func (s *store) remove(name string) error {
 				return err
 			}
 			s.registry.Profiles = append(s.registry.Profiles[:i], s.registry.Profiles[i+1:]...)
+			return s.save()
+		}
+	}
+	return fmt.Errorf("profile %q not found", name)
+}
+
+func (s *store) setReview(name string, when time.Time) error {
+	for i := range s.registry.Profiles {
+		if s.registry.Profiles[i].Name == name {
+			s.registry.Profiles[i].CredentialReview = when.UTC().Format(time.RFC3339)
 			return s.save()
 		}
 	}
