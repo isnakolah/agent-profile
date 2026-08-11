@@ -45,6 +45,15 @@ type ProviderSnapshot struct {
 	Checked       time.Time `json:"checked_at"`
 }
 
+type DoctorReport struct {
+	Version  string `json:"version"`
+	OS       string `json:"os"`
+	Root     string `json:"data_root"`
+	Profiles int    `json:"profiles"`
+	Codex    string `json:"codex"`
+	Claude   string `json:"claude"`
+}
+
 func main() {
 	if err := run(os.Args[1:]); err != nil {
 		fmt.Fprintln(os.Stderr, "agent-profile:", err)
@@ -450,15 +459,7 @@ func doctorCommand(args []string) error {
 	if err != nil {
 		return err
 	}
-	type report struct {
-		Version  string `json:"version"`
-		OS       string `json:"os"`
-		Root     string `json:"data_root"`
-		Profiles int    `json:"profiles"`
-		Codex    string `json:"codex"`
-		Claude   string `json:"claude"`
-	}
-	r := report{Version: version, OS: runtime.GOOS, Root: store.root, Profiles: len(store.registry.Profiles), Codex: executableStatus("codex"), Claude: executableStatus("claude")}
+	r := DoctorReport{Version: version, OS: runtime.GOOS, Root: store.root, Profiles: len(store.registry.Profiles), Codex: executableStatus("codex"), Claude: executableStatus("claude")}
 	if len(args) > 0 && args[0] == "--json" {
 		return printJSON(r)
 	}
