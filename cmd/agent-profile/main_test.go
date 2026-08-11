@@ -65,6 +65,17 @@ func TestProviderLoginSpecs(t *testing.T) {
 	}
 }
 
+func TestSnapshotKeepsUnavailableUsageExplicit(t *testing.T) {
+	s := ProviderSnapshot{Provider: "claude", Profile: "demo", Status: "available", Authenticated: "not authenticated", Usage: "unavailable: provider quota API not exposed by CLI"}
+	b, err := json.Marshal(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !contains(string(b), `"usage":"unavailable: provider quota API not exposed by CLI"`) {
+		t.Fatalf("snapshot lost unavailable usage boundary: %s", b)
+	}
+}
+
 func TestAtomicJSONAndRegistryMetadata(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "profiles.json")
