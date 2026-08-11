@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -96,6 +97,27 @@ func TestCredentialReviewDateIsMetadataOnly(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, "profiles", "demo", "codex", "auth.json")); !os.IsNotExist(err) {
 		t.Fatalf("review update created credential file: %v", err)
+	}
+}
+
+func TestEventLogIsAppendOnlyMetadata(t *testing.T) {
+	root := t.TempDir()
+	s := &store{root: root, registryPath: filepath.Join(root, "profiles.json"), eventsDir: filepath.Join(root, "snapshots"), registry: Registry{SchemaVersion: 1}}
+	if err := appendEvent(s, Event{At: time.Unix(1, 0).UTC(), Action: "refresh", Profile: "demo"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := appendEvent(s, Event{At: time.Unix(2, 0).UTC(), Action: "notify", Profile: "demo", Detail: "threshold"}); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(filepath.Join(root, "events.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if lines := strings.Count(string(b), "\n"); lines != 2 {
+		t.Fatalf("event lines = %d", lines)
+	}
+	if contains(string(b), "token") || contains(string(b), "secret") {
+		t.Fatalf("event log contains credential-like data: %s", b)
 	}
 }
 
