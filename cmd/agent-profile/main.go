@@ -34,12 +34,14 @@ type Registry struct {
 }
 
 type ProviderSnapshot struct {
-	Provider string    `json:"provider"`
-	Profile  string    `json:"profile"`
-	Status   string    `json:"status"`
-	Version  string    `json:"version,omitempty"`
-	Error    string    `json:"error,omitempty"`
-	Checked  time.Time `json:"checked_at"`
+	Provider      string    `json:"provider"`
+	Profile       string    `json:"profile"`
+	Status        string    `json:"status"`
+	Version       string    `json:"version,omitempty"`
+	Authenticated string    `json:"authenticated"`
+	Usage         string    `json:"usage"`
+	Error         string    `json:"error,omitempty"`
+	Checked       time.Time `json:"checked_at"`
 }
 
 func main() {
@@ -196,13 +198,15 @@ func loginCommand(args []string) error {
 		return err
 	}
 	root, command := p.CodexHome, "codex"
+	loginArgs := []string{"login"}
 	if args[1] == "claude" {
 		root, command = p.ClaudeConfigDir, "claude"
+		loginArgs = []string{"auth", "login"}
 	}
 	if err := os.MkdirAll(root, 0o700); err != nil {
 		return err
 	}
-	cmd := exec.Command(command, "login")
+	cmd := exec.Command(command, loginArgs...)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	cmd.Env = append(os.Environ(), envName(args[1])+"="+root)
 	return cmd.Run()
@@ -235,14 +239,14 @@ func snapshotCommand(args []string) error {
 		if s.Error != "" {
 			fmt.Printf("%s: unavailable (%s)\n", s.Provider, s.Error)
 		} else {
-			fmt.Printf("%s: %s %s\n", s.Provider, s.Status, s.Version)
+			fmt.Printf("%s: %s %s; auth=%s; usage=%s\n", s.Provider, s.Status, s.Version, s.Authenticated, s.Usage)
 		}
 	}
 	return nil
 }
 
 func probe(profile, provider, root string) ProviderSnapshot {
-	s := ProviderSnapshot{Provider: provider, Profile: profile, Checked: time.Now().UTC(), Status: "unavailable"}
+	s := ProviderSnapshot{Provider: provider, Profile: profile, Checked: time.Now().UTC(), Status: "unavailable", Authenticated: "unavailable", Usage: "unavailable: provider quota API not exposed by CLI"}
 	command := provider
 	cmd := exec.Command(command, "--version")
 	cmd.Env = append(os.Environ(), envName(provider)+"="+root)
@@ -253,6 +257,17 @@ func probe(profile, provider, root string) ProviderSnapshot {
 	}
 	s.Status = "available"
 	s.Version = strings.TrimSpace(string(out))
+	statusArgs := []string{"login", "status"}
+	if provider == "claude" {
+		statusArgs = []string{"auth", "status"}
+	}
+	statusCmd := exec.Command(command, statusArgs...)
+	statusCmd.Env = append(os.Environ(), envName(provider)+"="+root)
+	if _, err := statusCmd.Output(); err == nil {
+		s.Authenticated = "authenticated"
+	} else {
+		s.Authenticated = "not authenticated"
+	}
 	return s
 }
 
