@@ -30,6 +30,16 @@ func TestLauncherScriptIsolated(t *testing.T) {
 	}
 }
 
+func TestClaudeLauncherUsesOnlyClaudeConfigDir(t *testing.T) {
+	script := launcherScript("claude", "/profiles/demo/claude")
+	if !contains(script, `export CLAUDE_CONFIG_DIR="/profiles/demo/claude"`) {
+		t.Fatalf("Claude launcher missing isolated config root: %s", script)
+	}
+	if contains(script, "CODEX_HOME") || contains(script, "HOME=") {
+		t.Fatalf("Claude launcher changed unrelated runtime homes: %s", script)
+	}
+}
+
 func TestAtomicJSONAndRegistryMetadata(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "profiles.json")
