@@ -11,3 +11,5 @@ Create a profile, then run provider login from its isolated launcher. Usage rema
 explicitly unavailable when a provider CLI does not expose quota data. Service
 installation writes launchd or systemd user definitions; enabling those services is
 an operator action on each host.
+
+Recovery and source-install boundaries are documented for operators.
