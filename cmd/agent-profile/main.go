@@ -45,6 +45,13 @@ type ProviderSnapshot struct {
 	Checked       time.Time `json:"checked_at"`
 }
 
+type Event struct {
+	At      time.Time `json:"at"`
+	Action  string    `json:"action"`
+	Profile string    `json:"profile,omitempty"`
+	Detail  string    `json:"detail,omitempty"`
+}
+
 type DoctorReport struct {
 	Version  string `json:"version"`
 	OS       string `json:"os"`
@@ -233,7 +240,10 @@ func loginCommand(args []string) error {
 	cmd := exec.Command(command, loginArgs...)
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	cmd.Env = append(os.Environ(), envName(args[1])+"="+root)
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+	return appendEvent(store, Event{At: time.Now().UTC(), Action: "login", Profile: p.Name, Detail: args[1]})
 }
 
 func providerLoginSpec(provider string) (string, []string, error) {
@@ -332,6 +342,9 @@ func refreshCommand(args []string) error {
 			if store.registry.Profiles[i].Name == p.Name {
 				store.registry.Profiles[i].LastRefresh = time.Now().UTC()
 			}
+		}
+		if err := appendEvent(store, Event{At: time.Now().UTC(), Action: "refresh", Profile: p.Name}); err != nil {
+			return err
 		}
 	}
 	if err := store.save(); err != nil {
@@ -468,12 +481,18 @@ func notifyCommand(args []string) error {
 		return err
 	}
 	if runtime.GOOS == "darwin" {
-		return exec.Command("osascript", "-e", fmt.Sprintf("display notification %q with title %q", message, "agent-profile "+args[0])).Run()
+		if err := exec.Command("osascript", "-e", fmt.Sprintf("display notification %q with title %q", message, "agent-profile "+args[0])).Run(); err != nil {
+			return err
+		}
+		return appendEvent(store, Event{At: time.Now().UTC(), Action: "notify", Profile: args[0], Detail: message})
 	}
 	if _, err := exec.LookPath("notify-send"); err != nil {
 		return fmt.Errorf("native notification unavailable: %w", err)
 	}
-	return exec.Command("notify-send", "agent-profile "+args[0], message).Run()
+	if err := exec.Command("notify-send", "agent-profile "+args[0], message).Run(); err != nil {
+		return err
+	}
+	return appendEvent(store, Event{At: time.Now().UTC(), Action: "notify", Profile: args[0], Detail: message})
 }
 
 func doctorCommand(args []string) error {
@@ -546,6 +565,9 @@ func (s *store) create(name string) error {
 	if err := s.save(); err != nil {
 		return err
 	}
+	if err := appendEvent(s, Event{At: time.Now().UTC(), Action: "profile.create", Profile: name}); err != nil {
+		return err
+	}
 	fmt.Println("created", name)
 	return nil
 }
@@ -557,7 +579,10 @@ func (s *store) remove(name string) error {
 				return err
 			}
 			s.registry.Profiles = append(s.registry.Profiles[:i], s.registry.Profiles[i+1:]...)
-			return s.save()
+			if err := s.save(); err != nil {
+				return err
+			}
+			return appendEvent(s, Event{At: time.Now().UTC(), Action: "profile.remove", Profile: name})
 		}
 	}
 	return fmt.Errorf("profile %q not found", name)
@@ -567,7 +592,10 @@ func (s *store) setReview(name string, when time.Time) error {
 	for i := range s.registry.Profiles {
 		if s.registry.Profiles[i].Name == name {
 			s.registry.Profiles[i].CredentialReview = when.UTC().Format(time.RFC3339)
-			return s.save()
+			if err := s.save(); err != nil {
+				return err
+			}
+			return appendEvent(s, Event{At: time.Now().UTC(), Action: "profile.review", Profile: name, Detail: when.UTC().Format(time.RFC3339)})
 		}
 	}
 	return fmt.Errorf("profile %q not found", name)
@@ -583,6 +611,24 @@ func (s *store) profile(name string) (Profile, error) {
 }
 
 func (s *store) save() error { return atomicJSON(s.registryPath, s.registry, 0o600) }
+
+func appendEvent(s *store, event Event) error {
+	path := filepath.Join(s.root, "events.jsonl")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
+	b, err := json.Marshal(event)
+	if err != nil {
+		return err
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.Write(append(b, '\n'))
+	return err
+}
 
 func atomicJSON(path string, value any, mode os.FileMode) error {
 	b, err := json.MarshalIndent(value, "", "  ")
