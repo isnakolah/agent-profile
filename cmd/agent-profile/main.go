@@ -428,17 +428,29 @@ func serviceCommand(args []string) error {
 			return err
 		}
 		path := filepath.Join(dir, "Library", "LaunchAgents", "com.isnakolah.agent-profile.plist")
-		content := fmt.Sprintf("<?xml version=\"1.0\" encoding=\"UTF-8\"?><plist version=\"1.0\"><dict><key>Label</key><string>com.isnakolah.agent-profile</string><key>ProgramArguments</key><array><string>%s</string><string>refresh</string><string>--all</string></array><key>RunAtLoad</key><true/><key>StartInterval</key><integer>300</integer></dict></plist>\n", executable)
+		content := launchdServiceContent(executable)
 		return writeService(path, content, *apply)
 	}
 	path := filepath.Join(root, "systemd", "user", "agent-profile.service")
-	content := fmt.Sprintf("[Unit]\nDescription=Agent Profile refresh\n\n[Service]\nType=oneshot\nExecStart=%s refresh --all\n", executable)
+	content := systemdServiceContent(executable)
 	if err := writeService(path, content, *apply); err != nil {
 		return err
 	}
 	timerPath := filepath.Join(root, "systemd", "user", "agent-profile.timer")
-	timer := "[Unit]\nDescription=Refresh Agent Profile snapshots\n\n[Timer]\nOnBootSec=2min\nOnUnitActiveSec=5min\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n"
+	timer := systemdTimerContent()
 	return writeService(timerPath, timer, *apply)
+}
+
+func launchdServiceContent(executable string) string {
+	return fmt.Sprintf("<?xml version=\"1.0\" encoding=\"UTF-8\"?><plist version=\"1.0\"><dict><key>Label</key><string>com.isnakolah.agent-profile</string><key>ProgramArguments</key><array><string>%s</string><string>refresh</string><string>--all</string></array><key>RunAtLoad</key><true/><key>StartInterval</key><integer>300</integer></dict></plist>\n", executable)
+}
+
+func systemdServiceContent(executable string) string {
+	return fmt.Sprintf("[Unit]\nDescription=Agent Profile refresh\n\n[Service]\nType=oneshot\nExecStart=%s refresh --all\n", executable)
+}
+
+func systemdTimerContent() string {
+	return "[Unit]\nDescription=Refresh Agent Profile snapshots\n\n[Timer]\nOnBootSec=2min\nOnUnitActiveSec=5min\nPersistent=true\n\n[Install]\nWantedBy=timers.target\n"
 }
 
 func writeService(path, content string, apply bool) error {
