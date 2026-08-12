@@ -17,4 +17,4 @@ Install host refresh service with `agent-profile service install --apply`; revie
 
 For recovery, reinstall from source, recreate registry metadata, and authenticate each profile again. Do not restore credentials from shell history, source control, Project comments, or Wiki pages.
 
-Service definitions are covered by launchd/systemd contract tests.
+Notification deduplication is one-hour, message-keyed, and append-only logged.
