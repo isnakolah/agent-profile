@@ -137,6 +137,19 @@ func TestServiceDefinitionsRefreshEveryFiveMinutes(t *testing.T) {
 	}
 }
 
+func TestNotificationDeduplicationWindow(t *testing.T) {
+	now := time.Date(2026, 8, 12, 12, 0, 0, 0, time.UTC)
+	if notificationDue("same", now.Add(-30*time.Minute), "same", now) {
+		t.Fatal("duplicate notification inside one-hour window was not suppressed")
+	}
+	if !notificationDue("same", now.Add(-time.Hour), "same", now) {
+		t.Fatal("notification did not reopen at one-hour boundary")
+	}
+	if !notificationDue("old", now, "new", now) {
+		t.Fatal("changed notification was suppressed")
+	}
+}
+
 func TestAtomicJSONAndRegistryMetadata(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "profiles.json")

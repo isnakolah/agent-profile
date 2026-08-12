@@ -486,7 +486,7 @@ func notifyCommand(args []string) error {
 	if b, readErr := os.ReadFile(dedupPath); readErr == nil {
 		_ = json.Unmarshal(b, &previous)
 	}
-	if previous.Key == key && time.Since(previous.At) < time.Hour {
+	if !notificationDue(previous.Key, previous.At, key, time.Now()) {
 		return nil
 	}
 	if err := atomicJSON(dedupPath, map[string]any{"key": key, "at": time.Now().UTC()}, 0o600); err != nil {
@@ -505,6 +505,10 @@ func notifyCommand(args []string) error {
 		return err
 	}
 	return appendEvent(store, Event{At: time.Now().UTC(), Action: "notify", Profile: args[0], Detail: message})
+}
+
+func notificationDue(previousKey string, previousAt time.Time, key string, now time.Time) bool {
+	return previousKey != key || now.Sub(previousAt) >= time.Hour
 }
 
 func doctorCommand(args []string) error {
