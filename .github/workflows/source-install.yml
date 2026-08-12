@@ -1,0 +1,22 @@
+name: source-install
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  install:
+    strategy:
+      matrix:
+        os: [macos-14, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+      - name: install from source
+        run: GOBIN="$RUNNER_TEMP/bin" go install ./cmd/agent-profile
+      - name: verify executable
+        run: "$RUNNER_TEMP/bin/agent-profile" doctor --json
