@@ -121,6 +121,22 @@ func TestEventLogIsAppendOnlyMetadata(t *testing.T) {
 	}
 }
 
+func TestServiceDefinitionsRefreshEveryFiveMinutes(t *testing.T) {
+	executable := "/usr/local/bin/agent-profile"
+	launchd := launchdServiceContent(executable)
+	if !contains(launchd, executable) || !contains(launchd, "StartInterval</key><integer>300") || !contains(launchd, "refresh</string>") {
+		t.Fatalf("launchd definition missing refresh schedule: %s", launchd)
+	}
+	systemd := systemdServiceContent(executable)
+	if !contains(systemd, "Type=oneshot") || !contains(systemd, "ExecStart="+executable+" refresh --all") {
+		t.Fatalf("systemd service missing refresh command: %s", systemd)
+	}
+	timer := systemdTimerContent()
+	if !contains(timer, "OnUnitActiveSec=5min") || !contains(timer, "Persistent=true") {
+		t.Fatalf("systemd timer missing durable schedule: %s", timer)
+	}
+}
+
 func TestAtomicJSONAndRegistryMetadata(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "profiles.json")
