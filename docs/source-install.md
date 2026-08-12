@@ -12,4 +12,4 @@ explicitly unavailable when a provider CLI does not expose quota data. Service
 installation writes launchd or systemd user definitions; enabling those services is
 an operator action on each host.
 
-Recovery and source-install boundaries are documented for operators.
+Release proof uses tagged source-install workflow on macOS and Linux.
