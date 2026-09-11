@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"encoding/json"
@@ -24,7 +24,7 @@ func TestValidProfileNames(t *testing.T) {
 
 func TestLauncherScriptIsolated(t *testing.T) {
 	script := launcherScript("codex", "/private/profile/codex")
-	if want := `export CODEX_HOME="/private/profile/codex"`; !contains(script, want) {
+	if want := `export CODEX_HOME='/private/profile/codex'`; !contains(script, want) {
 		t.Fatalf("launcher missing isolated environment: %s", script)
 	}
 	if contains(script, "cp ") || contains(script, "ln -s") {
@@ -34,7 +34,7 @@ func TestLauncherScriptIsolated(t *testing.T) {
 
 func TestClaudeLauncherUsesOnlyClaudeConfigDir(t *testing.T) {
 	script := launcherScript("claude", "/profiles/demo/claude")
-	if !contains(script, `export CLAUDE_CONFIG_DIR="/profiles/demo/claude"`) {
+	if !contains(script, `export CLAUDE_CONFIG_DIR='/profiles/demo/claude'`) {
 		t.Fatalf("Claude launcher missing isolated config root: %s", script)
 	}
 	if contains(script, "CODEX_HOME") || contains(script, "HOME=") {
@@ -128,7 +128,7 @@ func TestServiceDefinitionsRefreshEveryFiveMinutes(t *testing.T) {
 		t.Fatalf("launchd definition missing refresh schedule: %s", launchd)
 	}
 	systemd := systemdServiceContent(executable)
-	if !contains(systemd, "Type=oneshot") || !contains(systemd, "ExecStart="+executable+" refresh --all") {
+	if !contains(systemd, "Type=oneshot") || !contains(systemd, "ExecStart="+unitQuote(executable)+" refresh --all") {
 		t.Fatalf("systemd service missing refresh command: %s", systemd)
 	}
 	timer := systemdTimerContent()
