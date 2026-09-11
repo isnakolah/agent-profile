@@ -7,6 +7,7 @@ import (
 	"github.com/isnakolah/agent-profile/internal/credentials"
 	"github.com/isnakolah/agent-profile/internal/session"
 	"github.com/isnakolah/agent-profile/internal/state"
+	"golang.org/x/sys/unix"
 	"os"
 	"path/filepath"
 	"sort"
@@ -64,6 +65,12 @@ func openStore() (*store, error) {
 			return nil, errors.New("duplicate profile in registry")
 		}
 		seen[p.Name] = true
+		for kind, mode := range p.Auth {
+			if (kind != "codex" && kind != "claude") || (mode != "login" && mode != "api-key") {
+				s.close()
+				return nil, errors.New("unsupported profile authentication mode")
+			}
+		}
 		if err := safeProfilePath(root, p.Name); err != nil {
 			s.close()
 			return nil, err
@@ -196,7 +203,11 @@ func appendEvent(s *store, event Event) error {
 	if err != nil {
 		return err
 	}
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	fd, err := unix.Open(path, unix.O_CREAT|unix.O_APPEND|unix.O_WRONLY|unix.O_NOFOLLOW, 0600)
+	var f *os.File
+	if err == nil {
+		f = os.NewFile(uintptr(fd), path)
+	}
 	if err != nil {
 		return err
 	}

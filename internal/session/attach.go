@@ -58,7 +58,7 @@ func attach(root, id string, view, takeover bool) error {
 	}
 	var readOnly atomic.Bool
 	readOnly.Store(m.View)
-	fmt.Fprintln(os.Stderr, "\r\nCtrl-] d detach · Ctrl-] t take control · Ctrl-] Ctrl-] send prefix")
+	fmt.Fprintf(os.Stderr, "\r\nCtrl-%c d detach · Ctrl-%c t take control · repeat prefix to send it literally\r\n", detachPrefix()+64, detachPrefix()+64)
 	if m.View {
 		fmt.Fprintln(os.Stderr, "Read-only viewer; another terminal may control this session.")
 	}

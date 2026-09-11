@@ -195,3 +195,12 @@ func TestDetachPrefixWithNativeKeyboardProtocols(t *testing.T) {
 		t.Fatal("provider input changed")
 	}
 }
+
+func TestPastedPrefixIsNotInterpreted(t *testing.T) {
+	f := keyFilter{prefix: 29}
+	data := []byte("\x1b[200~hello\x1dd\x1b[201~")
+	out, actions := f.feed(data)
+	if len(actions) != 0 || !bytes.Equal(out, data) {
+		t.Fatal("paste interpreted as shortcut")
+	}
+}

@@ -92,7 +92,24 @@ func loginCommand(args []string) error {
 	if err := cmd.Run(); err != nil {
 		return err
 	}
-	return appendEvent(store, Event{At: time.Now().UTC(), Action: "login", Profile: p.Name, Detail: args[1]})
+	current, e := openStore()
+	if e != nil {
+		return e
+	}
+	defer current.close()
+	for i := range current.registry.Profiles {
+		if current.registry.Profiles[i].Name == p.Name {
+			if current.registry.Profiles[i].Auth == nil {
+				current.registry.Profiles[i].Auth = map[string]string{}
+			}
+			current.registry.Profiles[i].Auth[args[1]] = "login"
+			if e = current.save(); e != nil {
+				return e
+			}
+			return appendEvent(current, Event{At: time.Now().UTC(), Action: "login", Profile: p.Name, Detail: args[1]})
+		}
+	}
+	return errors.New("profile was removed during login")
 }
 
 func providerLoginSpec(provider string) (string, []string, error) {
