@@ -43,7 +43,7 @@ agent-profile service disable --apply
 
 macOS uses a launchd user agent; Linux uses a systemd user timer. Refresh runs every five minutes. Service startup captures the executable path, state root and PATH so it can find the provider CLIs. Reinstall the definition after moving the executable. The refresh service is independent of session workers and does not automatically restart conversations.
 
-The dashboard reads cached status asynchronously and refreshes its session list every two seconds. Use Profile settings → Refresh provider status for a fresh authentication probe. Provider API-key status says “configured (not verified)”; unavailable quota data is never fabricated. `agent-profile notify NAME MESSAGE` sends an explicit native notification and deduplicates successful deliveries for an hour. Notification content is not written to the event log.
+The dashboard reads cached status asynchronously and refreshes its session list every two seconds. Use Profile settings → Refresh provider status for a fresh authentication probe. Provider API-key status says “configured (not verified)”; unavailable quota data is never fabricated. `agent-profile notify NAME MESSAGE` sends an explicit native notification and deduplicates successful deliveries for an hour. Delivery events are appended to the event log; notification content is not written there.
 
 ## Recovery
 
