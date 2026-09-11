@@ -150,7 +150,7 @@ func Serve(root, id string) error {
 			w.enqueue(c, Message{Type: "exit", Code: code})
 		}
 		w.mu.Unlock()
-		time.Sleep(150 * time.Millisecond)
+		time.Sleep(2 * time.Second)
 		_ = listener.Close()
 	}()
 	for {
@@ -220,6 +220,11 @@ func (w *worker) handle(conn net.Conn) {
 		_ = Send(conn, Message{Type: "status", Session: &s})
 		return
 	case "stop":
+		if w.info.State != "running" {
+			w.mu.Unlock()
+			_ = Send(conn, Message{Type: "stopped"})
+			return
+		}
 		w.mu.Unlock()
 		_ = syscall.Kill(-w.command.Process.Pid, syscall.SIGTERM)
 		_ = Send(conn, Message{Type: "stopping"})
@@ -240,8 +245,13 @@ func (w *worker) handle(conn net.Conn) {
 		return
 	}
 	if w.info.State != "running" {
+		info := w.info
+		data := w.screen.snapshot()
 		w.mu.Unlock()
-		_ = Send(conn, Message{Type: "error", Error: "session has exited"})
+		_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Second))
+		_ = Send(conn, Message{Type: "attached", Session: &info, View: true})
+		_ = Send(conn, Message{Type: "output", Data: data})
+		_ = Send(conn, Message{Type: "exit", Code: info.ExitCode})
 		return
 	}
 	c := &client{conn: conn, queue: make(chan Message, 64), label: m.Label, width: m.Width, height: m.Height, done: make(chan struct{})}

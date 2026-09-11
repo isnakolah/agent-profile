@@ -204,3 +204,19 @@ func TestPastedPrefixIsNotInterpreted(t *testing.T) {
 		t.Fatal("paste interpreted as shortcut")
 	}
 }
+
+func TestFastProviderFailureRetainsOutputAndExitCode(t *testing.T) {
+	root := t.TempDir()
+	exe, _ := os.Executable()
+	info, e := Start(root, exe, Launch{Profile: "work", Provider: "codex", Directory: root, Executable: "/bin/sh", Args: []string{"-c", "printf 'invalid provider option'; exit 23"}, Env: os.Environ(), Width: 80, Height: 24})
+	if e != nil {
+		t.Fatal(e)
+	}
+	time.Sleep(50 * time.Millisecond)
+	c := connect(t, root, info.ID, "late", false)
+	until(t, c, "output", "invalid provider option")
+	m := until(t, c, "exit", "")
+	if m.Code != 23 {
+		t.Fatalf("exit code %d", m.Code)
+	}
+}
