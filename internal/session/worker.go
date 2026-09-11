@@ -177,7 +177,7 @@ func (w *worker) output() {
 		n, e := w.terminal.Read(buf)
 		if n > 0 {
 			w.mu.Lock()
-			_, _ = w.screen.vt.Write(buf[:n])
+			w.screen.write(buf[:n])
 			for c := range w.clients {
 				w.enqueue(c, Message{Type: "output", Data: append([]byte(nil), buf[:n]...)})
 			}

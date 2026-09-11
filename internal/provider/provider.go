@@ -59,3 +59,32 @@ func Resume(name string) []string {
 	}
 	return []string{"--resume"}
 }
+
+// Direct identifies management and noninteractive calls which should keep normal
+// shell semantics even when invoked from a terminal.
+func Direct(name string, args []string) bool {
+	for _, arg := range args {
+		if arg == "--" {
+			break
+		}
+		if arg == "--help" || arg == "-h" || arg == "--version" || arg == "-V" || arg == "-v" || name == "claude" && (arg == "-p" || arg == "--print") {
+			return true
+		}
+	}
+	if len(args) == 0 {
+		return false
+	}
+	if name == "codex" {
+		switch args[0] {
+		case "exec", "e", "review", "login", "logout", "help", "completion", "doctor", "mcp", "plugin", "update":
+			return true
+		}
+	}
+	if name == "claude" {
+		switch args[0] {
+		case "auth", "doctor", "install", "update", "mcp", "plugin", "logs", "stop", "rm":
+			return true
+		}
+	}
+	return false
+}

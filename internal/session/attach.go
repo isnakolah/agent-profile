@@ -67,7 +67,7 @@ func attach(root, id string, view, takeover bool) error {
 		return err
 	}
 	defer term.Restore(fd, old)
-	defer fmt.Fprint(os.Stdout, "\x1b[0m\x1b[?25h\x1b[?2004l\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?1049l\r\n")
+	defer fmt.Fprint(os.Stdout, "\x1b[<u\x1b[>4;0m\x1b[?1004l\x1b[?2026l\x1b[0m\x1b[?25h\x1b[?2004l\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?1049l\r\n")
 	reader, err := cancelreader.NewReader(os.Stdin)
 	if err != nil {
 		return err
@@ -75,50 +75,75 @@ func attach(root, id string, view, takeover bool) error {
 	defer reader.Close()
 	defer reader.Cancel()
 	done := make(chan error, 2)
+	inputDone, outputDone, readDone := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	input := make(chan []byte, 8)
+	stopInput := make(chan struct{})
 	go func() {
+		defer close(readDone)
+		defer close(input)
 		buf := make([]byte, 4096)
-		prefix := false
 		for {
 			n, e := reader.Read(buf)
+			if n > 0 {
+				select {
+				case input <- append([]byte(nil), buf[:n]...):
+				case <-stopInput:
+					return
+				}
+			}
 			if e != nil {
-				done <- nil
 				return
 			}
-			out := []byte{}
-			for _, b := range buf[:n] {
-				if prefix {
-					prefix = false
-					switch b {
-					case 'd':
-						_ = send(Message{Type: "detach"})
-						done <- nil
-						return
-					case 't':
-						_ = send(Message{Type: "takeover"})
-						continue
-					case 29:
-						out = append(out, 29)
-						continue
-					default:
-						out = append(out, 29, b)
-						continue
-					}
+		}
+	}()
+	go func() {
+		defer close(inputDone)
+		filter := keyFilter{prefix: detachPrefix()}
+		ticker := time.NewTicker(30 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			var out []byte
+			var actions []string
+			select {
+			case data, ok := <-input:
+				if !ok {
+					done <- nil
+					return
 				}
-				if b == 29 {
-					prefix = true
-				} else {
-					out = append(out, b)
+				out, actions = filter.feed(data)
+			case <-ticker.C:
+				out = filter.flush()
+			case <-stopInput:
+				return
+			}
+			for _, action := range actions {
+				if e := send(Message{Type: action}); e != nil {
+					done <- e
+					return
+				}
+				if action == "detach" {
+					done <- nil
+					return
 				}
 			}
 			if len(out) > 0 && !readOnly.Load() {
-				if e = send(Message{Type: "input", Data: out}); e != nil {
+				if e := send(Message{Type: "input", Data: out}); e != nil {
 					done <- e
 					return
 				}
 			}
 		}
 	}()
+	defer func() {
+		close(stopInput)
+		conn.Close()
+		reader.Cancel()
+		<-readDone
+		<-inputDone
+		<-outputDone
+	}()
 	go func() {
+		defer close(outputDone)
 		for {
 			m, e := Receive(conn)
 			if e != nil {

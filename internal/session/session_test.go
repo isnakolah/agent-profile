@@ -173,3 +173,25 @@ func TestStopAndRemove(t *testing.T) {
 	}
 	t.Fatal("stop did not finish")
 }
+
+func TestDetachPrefixWithNativeKeyboardProtocols(t *testing.T) {
+	for _, seq := range []string{"\x1dd", "\x1b[93;5ud", "\x1b[93;5u\x1b[100u"} {
+		f := keyFilter{prefix: 29}
+		var actions []string
+		for _, b := range []byte(seq) {
+			out, a := f.feed([]byte{b})
+			if len(out) > 0 {
+				t.Fatalf("prefix leaked: %q", out)
+			}
+			actions = append(actions, a...)
+		}
+		if len(actions) != 1 || actions[0] != "detach" {
+			t.Fatalf("did not detach: %q %+v", seq, actions)
+		}
+	}
+	f := keyFilter{prefix: 29}
+	out, actions := f.feed([]byte("hello\x1b[A"))
+	if string(out) != "hello\x1b[A" || len(actions) != 0 {
+		t.Fatal("provider input changed")
+	}
+}

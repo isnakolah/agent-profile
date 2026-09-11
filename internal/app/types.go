@@ -1,10 +1,25 @@
 package app
 
 import (
+	"runtime/debug"
 	"time"
 )
 
-const version = "0.1.0-dev"
+var version = buildVersion()
+
+func buildVersion() string {
+	if info, ok := debug.ReadBuildInfo(); ok {
+		if info.Main.Version != "" && info.Main.Version != "(devel)" {
+			return info.Main.Version
+		}
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.revision" && len(setting.Value) >= 12 {
+				return "0.1.0-dev+" + setting.Value[:12]
+			}
+		}
+	}
+	return "0.1.0-dev"
+}
 
 type Profile struct {
 	Name             string            `json:"name"`

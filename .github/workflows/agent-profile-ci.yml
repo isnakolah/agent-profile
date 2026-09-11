@@ -18,6 +18,16 @@ jobs:
         with:
           go-version-file: go.mod
       - run: go test -race -timeout 120s ./...
+      - name: Native Keychain round trip
+        if: runner.os == 'macOS'
+        run: AP_VAULT_INTEGRATION=1 go test ./internal/credentials -timeout 30s
+      - name: Install Linux vault test dependency
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y gnome-keyring dbus-x11
+      - name: Secret Service round trip
+        if: runner.os == 'Linux'
+        run: |
+          dbus-run-session -- sh -c 'printf "\n" | gnome-keyring-daemon --unlock --components=secrets; AP_VAULT_INTEGRATION=1 go test ./internal/credentials -timeout 30s'
       - run: go vet ./...
       - run: go build -o "$RUNNER_TEMP/agent-profile" ./cmd/agent-profile
       - name: Isolated source-install smoke

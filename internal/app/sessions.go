@@ -77,7 +77,7 @@ func launch(s *store, p Profile, kind, cwd string, args []string) error {
 		return fmt.Errorf("install %s before starting a session: %w", kind, e)
 	}
 	argv := append(prefix, args...)
-	if !term.IsTerminal(int(os.Stdin.Fd())) || !term.IsTerminal(int(os.Stdout.Fd())) {
+	if provider.Direct(kind, args) || !term.IsTerminal(int(os.Stdin.Fd())) || !term.IsTerminal(int(os.Stdout.Fd())) {
 		cmd := exec.Command(command, argv...)
 		cmd.Env = env
 		cmd.Dir = cwd
